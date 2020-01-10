@@ -1,0 +1,2 @@
+from .messenger import EmailConfig
+
