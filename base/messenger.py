@@ -6,11 +6,11 @@ from email.mime.multipart import MIMEMultipart
 
 
 class EmailConfig(object):
-    from_ = ""
-    to_ = ""
-    hostname_ = ""
-    username_ = ""
-    password_ = ""
+    from_ = "moqsien@163.com"
+    to_ = "moqsien@foxmail.com"
+    hostname_ = "smtp.163.com"
+    username_ = "moqsien"
+    password_ = "spider2019"
     
 
 async def send_mail(func_name, content):
