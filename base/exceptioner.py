@@ -22,7 +22,7 @@ class ExceptionHandler(object):
             return True
         elif issubclass(exc_type, TypeError):
             return True
-        return True
+        return False
 
 
 def retry(retry_times=6, exc_handler=ExceptionHandler):
