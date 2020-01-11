@@ -5,8 +5,6 @@ from exceptioner import ExceptionHandler
 from downloader import request
 
 
-
-
 class Base(object):
     def __init__(self):
         self.url = None
