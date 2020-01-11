@@ -1,15 +1,17 @@
 import asyncio
-import sqlalchemy as sa
 import aiomongo
 import aioredis
-from aiomysql.sa import create_engine
+from aiomysql import create_pool
 
 
 class MySQLConfig(object):
     username = ""
     password = ""
     hostname = ""
+    port = 3306
     database = ""
+    minsize = 1
+    maxsize = 10
 
 
 class MongoConfig(object):
@@ -22,9 +24,22 @@ class RedisConfig(object):
 
 
 class Client(object):
-    def __init__(self, loop):
+    def __init__(self, loop=None):
         self.loop = loop
         self.engine = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if self.engine is not None:
+            self.engine.close()
+            await self.engine.wait_closed()
+        if exc_type is None:
+            return True
+        else:
+            return False
+        return True
 
 
 class MySQLClient(Client):
@@ -32,20 +47,18 @@ class MySQLClient(Client):
         super().__init__(loop)
 
     async def __aenter__(self):
-        self.engine = await create_engine(
+        print(MySQLConfig.username)
+        self.engine = await create_pool(
+            minsize=MySQLConfig.minsize,
+            maxsize=MySQLConfig.maxsize,
             user=MySQLConfig.username,
             password=MySQLConfig.password,
             db=MySQLConfig.database,
             host=MySQLConfig.hostname,
+            port=MySQLConfig.port,
             loop=self.loop
         )
         return self.engine
-
-    async def __aexit__(self, exc_type, exc, tb):
-        if self.engine is not None:
-            self.engine.close()
-            await self.engine.wait_closed()
-        return True
 
 
 class MongoClient(Client):
@@ -60,36 +73,25 @@ class MongoClient(Client):
         db = self.engine[MongoConfig.database]
         return db
 
-    async def __aexit__(self, exc_type, exc, tb):
-        if self.engine is not None:
-            self.engine.close()
-            await self.engine.wait_closed()
-        return True
-
 
 class RedisClient(Client):
-    def __init__(self, loop):
-        super().__init__(loop)
+    def __init__(self):
+        super().__init__()
 
     async def __aenter__(self):
-        self.engine = await aioredis.create_connection(
+        self.engine = await aioredis.create_redis_pool(
             RedisConfig.redisuri
         )
         return self.engine
 
-    async def __aexit__(self, exc_type, exc, tb):
-        if self.engine is not None:
-            self.engine.close()
-            await self.engine.wait_closed()
-        return True
-
 
 async def test(sql, loop):
-    async with MySQLClient(loop) as engine:
-        async with engine.acquire() as conn:
-            r = await conn.execute(sql)
-            r = await r.fetchall()
-            print(r)
+    async with MySQLClient(loop) as pool:
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql)
+                r = await cur.fetchone()
+                print(r)
 
 
 async def test_mongo(loop):
@@ -99,12 +101,13 @@ async def test_mongo(loop):
                 print(c)
 
 
-async def test_redis(loop):
-    async with RedisClient(loop) as db:
-        db.get("cookie")
+async def test_redis():
+    async with RedisClient() as db:
+        r = await db.get("tb_h5")
+        print(r)
 
 
 if __name__ == "__main__":
     sql = "select * from tb_item where item_id=526898603880;"
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_redis(loop))
+    loop.run_until_complete(test_redis())

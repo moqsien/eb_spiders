@@ -3,62 +3,77 @@ import asyncio
 from downloader import request
 
 
-class CrawlerBase(object):
-    def __init__(self, start_url, loop):
-        # 事件循环
-        self.loop = loop
-        # 要抓取的url
+class Base(object):
+    def __init__(self):
         self.url = None
-        # 记录上次请求url
-        self.last_page_url = None
-        # 翻页用的url模板
-        self.pattern_url = None
-        # 翻页记录
-        self.page = 1
-        # 记录抓取总页数
-        self.total_page_num = 0
-        # 商品id
-        self.item_id = None
-        # 模块名
-        self.module_ = self.__class__.__module__
-        # 类名
-        self.class_ = self.__class__.__name__
+        self.page_cursor = 1
+        self.total_page = 100
+        self.url_pattern = None
+        self._module = self.__class__.__module__
+        self._class = self.__class__.__name__
 
     async def get_response(self, url):
-        resp = await request("GET", url)
-        return resp
+        content, _ = await request("GET", url)
+        return content
 
     @abc.abstractmethod
-    def get_next_url(self, response):
-        pass
+    def get_total_page_num(self, response):
+        """
+        获取总页码数
+        Arguments:
+            response {[str]} -- [页面响应字符串或json]
+        """
+        self.total_page = 100
+
+    @abc.abstractmethod
+    def get_url(self, page_num):
+        """
+        根据页码获取要抓取的url
+        Arguments:
+            page_num {[int]} -- [页码数]
+        """
+        assert self.url_pattern
+        return self.url_pattern.format(page_num)
 
     @abc.abstractmethod
     async def parse_item(self, data):
+        """
+        解析每一条数据
+        Arguments:
+            data {[dict]} -- [商品数据]
+        """
         pass
 
     @abc.abstractmethod
     async def parse_page(self, response):
+        """
+        解析每一页数据
+        Arguments:
+            response {[str]} -- [页面响应字符串或者json]
+        """
         pass
 
-    async def crawl(self, url=None):
-        if url is not None:
-            self.url = url
-        assert self.url is not None, "请求第一页时，self.url不能为None，请在初始化方法中设置url或者在crawl方法调用时设置self.url"
-        resp = await self.get_response(self.url)
-        self.last_page_url = self.url
-        self.spider_name = spider_name
-        while True:
-            print("========第{}页开始========".format(self.page))
-            await self.parse_page(resp)
-            print("========第{}页完成========".format(self.page))
-            self.page += 1
-            next_page_url = self.get_next_url(resp)
-            # 如果下一页url为空，重置参数到默认值，修改参数，跳出循环
-            if not next_page_url:
-                self.pattern_url = None
-                self.total_page_num = self.page
-                self.page = 1
-                break
-            resp = await self.get_response(next_page_url)
-            # 更新上一页url地址
-            self.last_page_url = next_page_url
+    def gen_req_task(self, page_num):
+        url = self.get_url(page_num)
+        task = asyncio.ensure_future(self.get_response(url))
+        return task
+
+    def gen_parse_task(self, result):
+        return asyncio.ensure_future(self.parse_page(result))
+
+    async def crawl(self, url=None, url_pattern=None, max_reqs=5):
+        self.url = url
+        self.url_pattern = url_pattern
+        resp = await self.get_response(url)
+        self.get_total_page_num(resp)
+        while self.page_cursor <= self.total_page:
+            tasks = [
+                self.gen_req_task(page) for page in range(self.page_cursor,
+                                                          self.page_cursor + max_reqs)
+            ]
+            results = await asyncio.gather(*tasks)
+            tasks_ = [
+                self.gen_parse_task(result) for result in results
+            ]
+            await asyncio.gather(*tasks_)
+            self.page_cursor += max_reqs

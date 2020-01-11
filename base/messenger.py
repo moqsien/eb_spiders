@@ -6,12 +6,12 @@ from email.mime.multipart import MIMEMultipart
 
 
 class EmailConfig(object):
-    from_ = "moqsien@163.com"
-    to_ = "moqsien@foxmail.com"
-    hostname_ = "smtp.163.com"
-    username_ = "moqsien"
-    password_ = "spider2019"
-
+    from_ = ""
+    to_ = ""
+    hostname_ = ""
+    username_ = ""
+    password_ = ""
+    
 
 async def send_mail(func_name, content):
     title = "[{}] has exceptions!".format(func_name)
