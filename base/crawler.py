@@ -5,7 +5,34 @@ from exceptioner import ExceptionHandler
 from downloader import request
 
 
-class Base(object):
+class BaseMeta(type):
+    def __new__(cls, name, bases, attrs):
+        parse_retry_times = attrs.get("parse_retry_times", 1)
+        parse_exc_handler = attrs.get("parse_exc_handler", ExceptionHandler)
+        crawl_exc_handler = attrs.get("crawl_exc_handler", ExceptionHandler)
+        if "retry" in attrs and "parse_item" in attrs:
+            attrs["parse_item"] = attrs["retry"](
+                retry_times=parse_retry_times,
+                exc_handler=parse_exc_handler
+            )(
+                attrs["parse_item"]
+            )
+        if "retry" in attrs and "crawl" in attrs:
+            attrs["crawl"] = attrs["retry"](
+                retry_times=1,
+                exc_handler=crawl_exc_handler
+            )(
+                attrs["crawl"]
+            )
+        return super(BaseMeta, cls).__new__(cls, name, bases, attrs)
+
+
+class Base(metaclass=BaseMeta):
+    retry = retry
+    parse_retry_times = 3
+    parse_exc_handler = ExceptionHandler
+    crawl_exc_handler = ExceptionHandler
+
     def __init__(self):
         self.url = None
         self.page_cursor = 1
