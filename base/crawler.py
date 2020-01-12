@@ -42,8 +42,8 @@ class Base(metaclass=BaseMeta):
         self._class = self.__class__.__name__
 
     async def get_response(self, url):
-        content, _ = await request("GET", url)
-        return content
+        resp = await request("GET", url)
+        return resp
 
     @abc.abstractmethod
     def get_total_page_num(self, response):

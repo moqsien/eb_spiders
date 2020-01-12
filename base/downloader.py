@@ -27,10 +27,10 @@ async def request(method, url=None, is_mobile=False, **kwargs):
                 content = await r.text(encoding=r.charset)
                 resp.xpath = etree.HTML(content).xpath
             elif "json" in content_type:
-                content = await r.json(encoding=r.charset)
+                resp = await r.json(encoding=r.charset)
             else:
-                content = await r.read()
-    return content, resp
+                resp = await r.read()
+    return resp
 
 
 def main():
